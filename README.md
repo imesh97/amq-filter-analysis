@@ -6,4 +6,8 @@
 
 # Installation instructions
 
+run `pip install numpy pandas matplotlib bitarray`
+
 # How to run (include note for overriding existing files)
+
+run `python main.py`
