@@ -1,8 +1,8 @@
-# Approximate Membership Query (AMQ) Structures in Sports Analytics
+# Approximate Membership Query Structures in Sports Analytics
 
 ## Overview
 
-This research project implements and analyzes three Approximate Membership Query (AMQ) data structures: Bloom Filters, Cuckoo Filters, and Vacuum Filters. The project conducts a comprehensive performance analysis using two different approaches:
+This research project implements and analyzes three Approximate Membership Query (AMQ) data structures: Bloom Filters, Cuckoo Filters, and Vacuum Filters. Furthermore, the project conducts a performance analysis using two different approaches:
 
 1. **Standard Dataset Analysis**
 
@@ -57,7 +57,7 @@ pip install numpy pandas matplotlib
 python main.py
 ```
 
-This will generate random datasets and perform performance analysis on the Bloom, Cuckoo, and Vacuum filters.
+This will generate random datasets and conduct performance analysis on the Bloom, Cuckoo, and Vacuum filters.
 
 ### Basketball Dataset Analysis
 
@@ -65,7 +65,7 @@ This will generate random datasets and perform performance analysis on the Bloom
 python basketball.py
 ```
 
-This will analyze the performance of AMQ structures on basketball player names.
+This will analyze the performance of AMQ structures on basketball player statistics.
 
 ### Important Notes
 
@@ -84,3 +84,7 @@ This will analyze the performance of AMQ structures on basketball player names.
 
 - Modify `dataset_sizes` in `main.py` to adjust analysis scale
 - Replace `data/basketball_data.csv` with your own dataset for custom analysis
+
+## Report
+
+The research report on this project can be found [here](https://github.com/imesh97/amq-filter-analysis/blob/main/report.pdf).
