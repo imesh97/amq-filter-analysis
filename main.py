@@ -8,7 +8,6 @@ from bloom_filter import BloomFilter
 from cuckoo_filter import CuckooFilter
 from vacuum_filter import VacuumFilter
 
-
 def generate_dataset(dataset_size, count):
     """
     Generate a random dataset of integers of size dataset_size
@@ -31,16 +30,14 @@ def generate_dataset(dataset_size, count):
 
     return original_dataset, test_dataset  # Return tuple of the datasets and DataFrames
 
-
 def check_insertion_time(dataset, filter):
     """
     Check insertion time of a filter
     """
     start_time = time.time()
     for item in dataset:
-        filter.add(item)
+        filter.insert(item)
     return time.time() - start_time  # Return time difference between start and end of dataset inserts
-
 
 def check_query_time_and_fpr(orig_dataset, test_dataset, filter):
     """
@@ -48,10 +45,9 @@ def check_query_time_and_fpr(orig_dataset, test_dataset, filter):
     """
     start_time = time.time()
     false_positives = sum(1 for item in test_dataset if item not in orig_dataset and item in filter)
-    query_time = time.time() - start_time  # Time difference between start and end of query
-    false_positive_rate = false_positives / len(test_dataset)  #
+    query_time = (time.time() - start_time) / len(test_dataset)  # Time difference between start and end of query divided by test dataset size
+    false_positive_rate = false_positives / len(test_dataset)  # Number of detected false positives divided by test dataset size
     return query_time, false_positive_rate
-
 
 def plot_results(dataframe):
     """
@@ -81,13 +77,13 @@ def plot_results(dataframe):
     plt.xscale('log')
     plt.yscale('log')
     
-    plt.subplot(133)  # Query Time
-    plt.title('Query Time')
-    plt.plot(dataframe['Dataset Size'], dataframe['Bloom Query Time (s)'], label='Bloom')
-    plt.plot(dataframe['Dataset Size'], dataframe['Cuckoo Query Time (s)'], label='Cuckoo')
-    plt.plot(dataframe['Dataset Size'], dataframe['Vacuum Query Time (s)'], label='Vacuum')
+    plt.subplot(133)  # Query Speed
+    plt.title('Query Speed')
+    plt.plot(dataframe['Dataset Size'], dataframe['Bloom Query Speed (s)'], label='Bloom')
+    plt.plot(dataframe['Dataset Size'], dataframe['Cuckoo Query Speed (s)'], label='Cuckoo')
+    plt.plot(dataframe['Dataset Size'], dataframe['Vacuum Query Speed (s)'], label='Vacuum')
     plt.xlabel('Dataset Size')
-    plt.ylabel('Query Time (seconds)')
+    plt.ylabel('Query Speed (operations / second)')
     plt.legend()
     plt.xscale('log')
     plt.yscale('log')
@@ -96,10 +92,9 @@ def plot_results(dataframe):
     plt.savefig('amq_filters_performance.png')  # Save visualization to PNG
     plt.close()
 
-
 def performance_analysis():
     """
-    Comprehensive performance analysis of AMQ structures
+    Conduct performance analysis of AMQ structures
     """
     dataset_sizes = [10000, 100000, 1000000]  # Different dataset sizes (small, medium, large)
     results = []  # Store results for visualization
@@ -118,38 +113,38 @@ def performance_analysis():
 
         bloom_memory = sys.getsizeof(bloom.bit_array) / 1024  # Memory Usage (KB)
         bloom_insertion_time = check_insertion_time(original_dataset, bloom)  # Insertion Time
-        bloom_query_time, bloom_false_positive_rate = check_query_time_and_fpr(original_dataset, test_dataset, bloom)  # Query Time and False Positive Rate
+        bloom_query_time, bloom_false_positive_rate = check_query_time_and_fpr(original_dataset, test_dataset, bloom)  # Query Speed and False Positive Rate
         
         print("Performing Cuckoo Filter analysis...")  # CUCKOO FILTER analysis
         cuckoo = CuckooFilter(size=dataset_size)  # Create Cuckoo Filter
 
         cuckoo_memory = sys.getsizeof(cuckoo.buckets) / 1024  # Memory Usage (KB)
         cuckoo_insertion_time = check_insertion_time(original_dataset, cuckoo)  # Insertion Time
-        cuckoo_query_time, cuckoo_false_positive_rate = check_query_time_and_fpr(original_dataset, test_dataset, cuckoo)  # Query Time and False Positive Rate
+        cuckoo_query_time, cuckoo_false_positive_rate = check_query_time_and_fpr(original_dataset, test_dataset, cuckoo)  # Query Speed and False Positive Rate
         
         print("Performing Vacuum Filter analysis...")  # VACUUM FILTER analysis
         vacuum = VacuumFilter(size=dataset_size)  # Create Vacuum Filter
 
         vacuum_memory = sys.getsizeof(vacuum.count_array) / 1024  # Memory Usage (KB)
         vacuum_insertion_time = check_insertion_time(original_dataset, vacuum)  # Insertion Time
-        vacuum_query_time, vacuum_false_positive_rate = check_query_time_and_fpr(original_dataset, test_dataset, vacuum)  # Query Time and False Positive Rate
+        vacuum_query_time, vacuum_false_positive_rate = check_query_time_and_fpr(original_dataset, test_dataset, vacuum)  # Query Speed and False Positive Rate
         
         results.append({  # Append results
             'Dataset Size': dataset_size,
             
             'Bloom Memory Usage (KB)': bloom_memory,  # Bloom Filter metrics
             'Bloom Insertion Time (s)': bloom_insertion_time,
-            'Bloom Query Time (s)': bloom_query_time,
+            'Bloom Query Speed (s)': bloom_query_time,
             'Bloom False Positive Rate': bloom_false_positive_rate,
             
             'Cuckoo Memory Usage (KB)': cuckoo_memory,  # Cuckoo Filter metrics
             'Cuckoo Insertion Time (s)': cuckoo_insertion_time,
-            'Cuckoo Query Time (s)': cuckoo_query_time,
+            'Cuckoo Query Speed (s)': cuckoo_query_time,
             'Cuckoo False Positive Rate': cuckoo_false_positive_rate,
             
             'Vacuum Memory Usage (KB)': vacuum_memory,  # Vacuum Filter metrics
             'Vacuum Insertion Time (s)': vacuum_insertion_time,
-            'Vacuum Query Time (s)': vacuum_query_time,
+            'Vacuum Query Speed (s)': vacuum_query_time,
             'Vacuum False Positive Rate': vacuum_false_positive_rate
         })
         count = count + 1
@@ -163,10 +158,8 @@ def performance_analysis():
     print("AMQ Analysis:\n")
     print(df.to_string(index=False))
 
-
 def main():
     performance_analysis()  # Conduct performance analysis
-
 
 if __name__ == "__main__":
     main()
