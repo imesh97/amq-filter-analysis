@@ -2,66 +2,94 @@ import hashlib
 import random
 
 class CuckooFilter:
-    def __init__(self, size, max_kicks=500):
+    def __init__(self, size=1024, bucket_size=4, max_kicks=500):
         """
-        Initialize Cuckoo Filter
+        Initialize a Cuckoo Filter
         """
         self.size = size
-        self.buckets = [None] * size
+        self.bucket_size = bucket_size
         self.max_kicks = max_kicks
-    
+        
+        self.table = [[] for _ in range(size)]  # Initialize the hash table as a list of buckets (each storing fingerprints)
+
     def _hash(self, item):
         """
-        Generate primary hash
+        Generate a hash for an item using SHA-256
         """
-        hash_value = hashlib.sha256(str(item).encode('utf-8')).hexdigest()
-        return int(hash_value, 16) % self.size
-    
-    def _alt_hash(self, index):
+        return int(hashlib.sha256(str(item).encode()).hexdigest(), 16)
+
+    def _fingerprint(self, item):
         """
-        Generate alternative hash index
+        Generate a fingerprint for an item
         """
-        hash_value = hashlib.sha256(str(index).encode('utf-8')).hexdigest()
-        return int(hash_value, 16) % self.size
-    
-    def add(self, item):
+        return self._hash(item) & 0xFF  # Use last 8 bits of hash as a fingerprint
+
+    def _get_bucket_indexes(self, item):
         """
-        Add item to Cuckoo Filter
+        Calculate two candidate bucket indexes for an item
         """
-        index = self._hash(item)
-        
-        if self.buckets[index] is None:  # Try first bucket
-            self.buckets[index] = item
+        h1 = self._hash(item) % self.size  # i1 = hash(item)
+        f = self._fingerprint(item)
+        h2 = h1 ^ (self._hash(f) % self.size)  # i2 = i1 XOR hash(f)
+        return h1, h2
+
+    def insert(self, item):
+        """
+        Insert an item into the Cuckoo Filter
+        """
+        f = self._fingerprint(item)  # Generate fingerprint
+        i1, i2 = self._get_bucket_indexes(item)  # i1 = h(item), i2 = i1 XOR hash(f)
+
+        if len(self.table[i1]) < self.bucket_size:  # Try to insert in either bucket if empty
+            self.table[i1].append(f)
             return True
-        
-        alt_index = self._alt_hash(index)  # Try alternate bucket
-        if self.buckets[alt_index] is None:
-            self.buckets[alt_index] = item
+        if len(self.table[i2]) < self.bucket_size:
+            self.table[i2].append(f)
             return True
-        
-        for _ in range(self.max_kicks):  # Kickout strategy
-            swap_index = index if random.random() < 0.5 else alt_index
-            
-            item, self.buckets[swap_index] = self.buckets[swap_index], item
-            
-            index = self._hash(item)
-            alt_index = self._alt_hash(index)
-            
-            if self.buckets[index] is None:
-                self.buckets[index] = item
+
+        # Otherwise, relocate existing items
+        i = random.choice([i1, i2])  # Randomly choose between two buckets
+
+        for _ in range(self.max_kicks):  # Perform up to max_kicks relocations
+            j = random.randint(0, len(self.table[i]) - 1)  # Randomly select entry to kick out
+            f, self.table[i][j] = self.table[i][j], f
+
+            i = i ^ (self._hash(f) % self.size)  # Calculate alternate bucket for the kicked out f
+            if len(self.table[i]) < self.bucket_size:  # If the alternate bucket has space, insert f
+                self.table[i].append(f)
                 return True
-            if self.buckets[alt_index] is None:
-                self.buckets[alt_index] = item
-                return True
-        
+
+        return False  # Table is considered full
+
+    def delete(self, item):
+        """
+        Delete an item from the Cuckoo Filter
+        """
+        f = self._fingerprint(item)  # Generate fingerprint
+        i1, i2 = self._get_bucket_indexes(item)  # i1 = h(item), i2 = i1 XOR hash(f)
+
+        if f in self.table[i1]:  # Try to remove the fingerprint from either bucket
+            self.table[i1].remove(f)
+            return True
+        if f in self.table[i2]:
+            self.table[i2].remove(f)
+            return True
+
         return False
+
+    def load_factor(self):
+        """
+        Calculate the current load factor of the Cuckoo Filter
+        """
+        occupied_slots = sum(len(bucket) for bucket in self.table)  # Count occupied slots
+        total_slots = self.size * self.bucket_size  # Calculate total slots
+        return (occupied_slots / total_slots) * 100  # Return load factor percentage
     
     def __contains__(self, item):
         """
         Check probable membership
         """
-        index = self._hash(item)
-        alt_index = self._alt_hash(index)
-        
-        return (self.buckets[index] == item or 
-                self.buckets[alt_index] == item)
+        f = self._fingerprint(item)  # Generate fingerprint
+        i1, i2 = self._get_bucket_indexes(item)  # i1 = h(item), i2 = i1 XOR hash(f)
+
+        return f in self.table[i1] or f in self.table[i2]  # Check if buckets contain fingerprint

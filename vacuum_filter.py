@@ -1,68 +1,162 @@
 import numpy as np
 import hashlib
 
-class VacuumFilter:
-    def __init__(self, size, num_hashes=3, load_factor=0.95):
+class VacuamFilter:
+    def __init__(self, n, load_factor=0.95):
         """
         Initialize Vacuum Filter
         """
-        self.size = size
-        self.num_hashes = num_hashes
+        self.slots_per_bucket = 4  # Initialize parameters (load factor is 0.95 by default)
+        self.n = n
         self.load_factor = load_factor
-        self.count_array = np.zeros(size, dtype=np.uint8)
-        self.item_count = 0
+        
+        self.alternate_ranges = self._init_alternate_ranges(n, load_factor)
+        self.m = self._calculate_buckets(n, load_factor)  # Calculate number of buckets
+        self.table = [[] for _ in range(self.m)]
     
-    def _hash(self, item, seed):
+    def _hash(self, item):
         """
-        Generate hash for item
+        Generate hash for an item using SHA-256
         """
-        hash_input = f"{seed}{item}".encode('utf-8')
-        return int(hashlib.sha256(hash_input).hexdigest(), 16) % self.size
+        hash_obj = hashlib.sha256(str(item).encode())
+        return int.from_bytes(hash_obj.digest()[:4], byteorder='big')
     
-    def add(self, item):
+    def _fingerprint(self, item):
         """
-        Add item to Vacuum Filter
+        Generate fingerprint for an item
         """
-        if self.item_count / self.size > self.load_factor:  # Check if resize is needed
-            self._resize()
-        
-        added = False
-        for i in range(self.num_hashes):  # Add item using multiple hash functions
-            index = self._hash(item, i)
-            if self.count_array[index] < 255:  # Prevent overflow
-                self.count_array[index] += 1
-                added = True
-        
-        if added:
-            self.item_count += 1
-        
-        return added
+        hash_obj = hashlib.sha256(str(item).encode())
+        return int.from_bytes(hash_obj.digest()[:4], byteorder='big')
     
-    def _resize(self):
+    def _init_alternate_ranges(self, n, load_factor):
         """
-        Resize the filter when load factor is exceeded
+        Initialize alternate ranges
         """
-        new_size = int(self.size * 1.5)
-        new_count_array = np.zeros(new_size, dtype=np.uint8)
+        alternate_ranges = []
+        for i in range(4):
+            ar = self._range_selection(n, load_factor, 1 - i/4)  # Calculate alt ranges for different groups of items
+            alternate_ranges.append(ar)
         
-        for i in range(self.size):  # Rehash existing items
-            if self.count_array[i] > 0:
-                for _ in range(self.count_array[i]):  # Recreate an item for each count
-                    rehash_item = f"rehash_{i}"
-                    for j in range(self.num_hashes):
-                        index = int(hashlib.sha256(f"{j}{rehash_item}".encode('utf-8')).hexdigest(), 16) % new_size
-                        if new_count_array[index] < 255:
-                            new_count_array[index] += 1
-                            break
+        alternate_ranges[3] *= 2  # Double the smallest alt range to avoid failures
         
-        self.size = new_size
-        self.count_array = new_count_array
+        return alternate_ranges
+    
+    def _range_selection(self, n, load_factor, ratio):
+        """
+        Select appropriate alt range size
+        """
+        L = 1
+        while not self._load_factor_test(n, load_factor, ratio, L):
+            L *= 2
+        return L
+    
+    def _load_factor_test(self, n, load_factor, ratio, L):
+        """
+        Test if a given alt range can achieve target load factor
+        """
+        m = np.ceil(n / (4 * load_factor * L)) * L  # Number of buckets
+        c = m // L  # Number of chunks
+        D = (n / c) + 1.5 * np.sqrt(2 * (n / c) * np.log(c))  # Estimated max load
+        P = 0.97 * 4 * L  # Capacity lower bound of each chunk
+        
+        return D < P
+    
+    def _calculate_buckets(self, n, load_factor):
+        """
+        Calculate the number of buckets needed
+        """
+        L = self.alternate_ranges[0]  # Select largest alt range for calculation
+        return np.ceil(n / (4 * load_factor * L)) * L
+    
+    def _map(self, x, m):
+        """
+        Uniformly maps hash value from 0 to m-1
+        """
+        return ((x * m) >> 32) % m
+    
+    def _alternate(self, bucket, fingerprint):
+        """
+        Compute current alt bucket
+        """
+        l = self.alternate_ranges[fingerprint % 4]  # Current alt range
+        delta_hash = hashlib.sha256(str(fingerprint).encode())  # Calculate delta
+        delta = int.from_bytes(delta_hash.digest()[:4], byteorder='big') % l
+        
+        return (bucket ^ delta) % self.m  # XOR to get alternate bucket
+    
+    def _alternate_small_key(self, bucket, m):
+        """
+        Alt function for small number of keys (< 2^18)
+        """
+        delta_hash = hashlib.sha256(str(bucket).encode())  # Calculate delta
+        delta = int.from_bytes(delta_hash.digest()[:4], byteorder='big') % m
+        
+        b_prime = (bucket - delta) % m  # Calculate alt bucket index
+        b_prime = (m - 1 - b_prime + delta) % m
+        
+        return b_prime
+    
+    def insert(self, item):
+        """
+        Insert an item into the Vacuum Filter
+        """
+        f = self._fingerprint(item)  # Generate fingerprint and initial buckets
+        b1 = self._map(self._hash(item), self.m)
+        b2 = self._alternate(b1, f)
+        
+        
+        if len(self.table[b1]) < self.slots_per_bucket:  # If either bucket is empty, then insert
+            self.table[b1].append(f)
+            return True
+        if len(self.table[b2]) < self.slots_per_bucket:
+            self.table[b2].append(f)
+            return True
+        
+        max_evicts = 500  # Eviction process (max = 500 to avoid infinite loop)
+        current_bucket = np.random.choice([b1, b2])  # Randomly select bucket B1 or B2
+        current_fingerprint = f
+        
+        for _ in range(max_evicts):
+            for existing_f in self.table[current_bucket]:  # Extend search scope
+                alt_bucket = self._alternate(current_bucket, existing_f)
+                if len(self.table[alt_bucket]) < self.slots_per_bucket:
+                    self.table[alt_bucket].append(existing_f)  # Evict existing fingerprint
+                    self.table[current_bucket].remove(existing_f)
+                    self.table[current_bucket].append(current_fingerprint)
+                    return True
+            
+            evict_index = np.random.randint(0, self.slots_per_bucket)  # Random eviction if no empty slots found
+            evicted_f = self.table[current_bucket][evict_index]
+            self.table[current_bucket][evict_index] = current_fingerprint
+            
+            current_bucket = self._alternate(current_bucket, evicted_f)  # B = Alt(B, f)
+            current_fingerprint = evicted_f
+        
+        return False
+    
+    def delete(self, item):
+        """
+        Delete an item from the Vacuum Filter
+        """
+        f = self._fingerprint(item)  # Generate fingerprint and candidate buckets
+        b1 = self._map(self._hash(item), self.m)
+        b2 = self._alternate(b1, f)
+        
+        if f in self.table[b1]:  # If fingerprint exists in two candidate buckets, then delete
+            self.table[b1].remove(f)
+            return True
+        if f in self.table[b2]:
+            self.table[b2].remove(f)
+            return True
+        
+        return False
     
     def __contains__(self, item):
         """
         Check probable membership
         """
-        return all(
-            self.count_array[self._hash(item, i)] > 0
-            for i in range(self.num_hashes)
-        )
+        f = self._fingerprint(item)  # Generate fingerprint
+        b1 = self._map(self._hash(item), self.m)  # Calculate two candidate buckets
+        b2 = self._alternate(b1, f)
+        
+        return f in self.table[b1] or f in self.table[b2]  # Check if fingerprint found in either candidate bucket
