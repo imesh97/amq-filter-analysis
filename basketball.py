@@ -4,19 +4,16 @@ import sys
 from bloom_filter import BloomFilter
 from cuckoo_filter import CuckooFilter
 from vacuum_filter import VacuumFilter
-from main import check_insertion_time, check_query_time_and_fpr, plot_results
+from main import check_insertion_time, check_query_time_and_fpr
 
 def read_basketball_dataset(file_path):
     """
     Read dataset for basketball player stats
     """
-    # Read the CSV file
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(file_path)  # Read basketball dataset CSV
+    split_index = int(len(df) * 0.8)  # 80% original, 20% test split
     
-    # Split into original and test datasets without shuffling
-    split_index = int(len(df) * 0.8)  # 80% original, 20% test
-    
-    original_dataset = df.iloc[:split_index]['NAME'].tolist()
+    original_dataset = df.iloc[:split_index]['NAME'].tolist()  # Create original and test datasets
     test_dataset = df.iloc[split_index:]['NAME'].tolist()
     
     return original_dataset, test_dataset
@@ -74,7 +71,7 @@ def basketball_performance_analysis(file_path):
         })
     
     df = pd.DataFrame(results)
-    df.to_csv('basketball_amq_filters_performance.csv', index=False)  # Save results to CSV
+    df.to_csv('results/basketball_amq_filters_performance.csv', index=False)  # Save results to CSV
     
     print("\nPERFORMANCE ANALYSIS COMPLETE.")
     print("AMQ Analysis for Basketball Player Data:\n")
@@ -84,4 +81,4 @@ def main(file_path):
     basketball_performance_analysis(file_path)
 
 if __name__ == "__main__":
-    main('basketball_data.csv')  # Run performance analysis on basketball player dataset file
+    main('data/basketball_data.csv')  # Run performance analysis on basketball player dataset file

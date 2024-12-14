@@ -89,7 +89,7 @@ def plot_results(dataframe):
     plt.yscale('log')
     
     plt.tight_layout()
-    plt.savefig('amq_filters_performance.png')  # Save visualization to PNG
+    plt.savefig('results/amq_filters_performance.png')  # Save visualization to PNG
     plt.close()
 
 def performance_analysis():
@@ -152,7 +152,7 @@ def performance_analysis():
     print("\nVisualizing results...")
     df = pd.DataFrame(results)  # Convert to DataFrame
     plot_results(df)  # Plot results to files
-    df.to_csv('amq_filters_performance.csv', index=False)  # Save results to CSV
+    df.to_csv('results/amq_filters_performance.csv', index=False)  # Save results to CSV
     
     print("\nPERFORMANCE ANALYSIS COMPLETE.")  # Print analysis results
     print("AMQ Analysis:\n")
