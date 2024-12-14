@@ -1,7 +1,7 @@
 import numpy as np
 import hashlib
 
-class VacuamFilter:
+class VacuumFilter:
     def __init__(self, n, load_factor=0.95):
         """
         Initialize Vacuum Filter
@@ -11,7 +11,7 @@ class VacuamFilter:
         self.load_factor = load_factor
         
         self.alternate_ranges = self._init_alternate_ranges(n, load_factor)
-        self.m = self._calculate_buckets(n, load_factor)  # Calculate number of buckets
+        self.m = int(np.ceil(self._calculate_buckets(n, load_factor)))  # Calculate number of buckets (using int casting)
         self.table = [[] for _ in range(self.m)]
     
     def _hash(self, item):
@@ -54,7 +54,7 @@ class VacuamFilter:
         """
         Test if a given alt range can achieve target load factor
         """
-        m = np.ceil(n / (4 * load_factor * L)) * L  # Number of buckets
+        m = int(np.ceil(n / (4 * load_factor * L))) * L  # Number of buckets (using int casting)
         c = m // L  # Number of chunks
         D = (n / c) + 1.5 * np.sqrt(2 * (n / c) * np.log(c))  # Estimated max load
         P = 0.97 * 4 * L  # Capacity lower bound of each chunk
