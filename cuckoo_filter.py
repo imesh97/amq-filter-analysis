@@ -30,7 +30,7 @@ class CuckooFilter:
         """
         h1 = self._hash(item) % self.size  # i1 = hash(item)
         f = self._fingerprint(item)
-        h2 = h1 ^ (self._hash(f) % self.size)  # i2 = i1 XOR hash(f)
+        h2 = (h1 ^ (self._hash(f) % self.size)) % self.size  # i2 = i1 XOR hash(f)
         return h1, h2
 
     def insert(self, item):
@@ -54,7 +54,7 @@ class CuckooFilter:
             j = random.randint(0, len(self.table[i]) - 1)  # Randomly select entry to kick out
             f, self.table[i][j] = self.table[i][j], f
 
-            i = i ^ (self._hash(f) % self.size)  # Calculate alternate bucket for the kicked out f
+            i = (i ^ (self._hash(f) % self.size)) % self.size  # Calculate alternate bucket for the kicked out f
             if len(self.table[i]) < self.bucket_size:  # If the alternate bucket has space, insert f
                 self.table[i].append(f)
                 return True
