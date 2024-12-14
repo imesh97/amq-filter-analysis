@@ -118,14 +118,14 @@ def performance_analysis():
         print("Performing Cuckoo Filter analysis...")  # CUCKOO FILTER analysis
         cuckoo = CuckooFilter(size=dataset_size)  # Create Cuckoo Filter
 
-        cuckoo_memory = sys.getsizeof(cuckoo.buckets) / 1024  # Memory Usage (KB)
+        cuckoo_memory = sys.getsizeof(cuckoo.table) / 1024  # Memory Usage (KB)
         cuckoo_insertion_time = check_insertion_time(original_dataset, cuckoo)  # Insertion Time
         cuckoo_query_time, cuckoo_false_positive_rate = check_query_time_and_fpr(original_dataset, test_dataset, cuckoo)  # Query Speed and False Positive Rate
         
         print("Performing Vacuum Filter analysis...")  # VACUUM FILTER analysis
-        vacuum = VacuumFilter(size=dataset_size)  # Create Vacuum Filter
+        vacuum = VacuumFilter(n=dataset_size)  # Create Vacuum Filter
 
-        vacuum_memory = sys.getsizeof(vacuum.count_array) / 1024  # Memory Usage (KB)
+        vacuum_memory = sys.getsizeof(vacuum.table) / 1024  # Memory Usage (KB)
         vacuum_insertion_time = check_insertion_time(original_dataset, vacuum)  # Insertion Time
         vacuum_query_time, vacuum_false_positive_rate = check_query_time_and_fpr(original_dataset, test_dataset, vacuum)  # Query Speed and False Positive Rate
         
